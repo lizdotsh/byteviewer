@@ -45,26 +45,125 @@ func printASCII(chunk []byte) string {
 
 }
 
-var (
-	encodings = []encoding{
-		{Name: "int8", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", int8(b[0])) }, Enabled: false, ByteLength: 1, Separator: `,`, Width: 40},
-		{Name: "uint8", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", uint8(b[0])) }, Enabled: false, ByteLength: 1, Separator: `,`, Width: (4 * 8) - 1},
-		{Name: "int16", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", int16(binary.LittleEndian.Uint16(b))) }, Enabled: false, ByteLength: 2, Separator: `,`, Width: (7 * 4) - 1},
-		{Name: "uint16", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", binary.LittleEndian.Uint16(b)) }, Enabled: false, ByteLength: 2, Separator: `,`, Width: (12 * 2) - 1},
-		{Name: "int32", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", int32(binary.LittleEndian.Uint32(b))) }, Enabled: false, ByteLength: 4, Separator: `,`, Width: (11 * 2) - 1},
-		{Name: "uint32", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", binary.LittleEndian.Uint32(b)) }, Enabled: false, ByteLength: 4, Separator: `,`, Width: (11 * 2) - 1},
-		{Name: "float32", EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%12.6f\n", math.Float32frombits(binary.BigEndian.Uint32(b)))
-		}, Enabled: false, ByteLength: 4, Separator: `,`, Width: (13 * 2) - 1},
-		{Name: "int64", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", int64(binary.BigEndian.Uint64(b))) }, Enabled: false, ByteLength: 8, Separator: `,`, Width: 20},
-		{Name: "uint64", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%d", binary.BigEndian.Uint64(b)) }, Enabled: false, ByteLength: 8, Separator: `,`, Width: 20},
-		{Name: "float64", EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%12.6f\n", math.Float64frombits(binary.BigEndian.Uint64(b)))
-		}, Enabled: false, ByteLength: 8, Separator: `,`, Width: 12},
-		{Name: "hex", EncoderFunc: func(b []byte) string { return fmt.Sprintf("%x", b) }, Enabled: false, ByteLength: 8, Separator: `,`, Width: 16},
-		{Name: "ascii", EncoderFunc: printASCII, Enabled: false, ByteLength: 8, Separator: `,`, Width: 8},
-	}
 
+var encodings = []encoding{
+	{
+		Name: "int8", 
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", int8(b[0])) 
+		}, 
+		Enabled: false, 
+		ByteLength: 1, 
+		Separator: `,`, 
+		Width: 40
+	},
+	{
+		Name: "uint8", 
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", uint8(b[0])) 
+		}, 
+		Enabled: false, 
+		ByteLength: 1, 
+		Separator: `,`,
+		Width: (4 * 8) - 1},
+	{
+		Name: "int16", 
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", int16(binary.LittleEndian.Uint16(b)))
+		}, 
+		Enabled: false, 
+		ByteLength: 2, 
+		Separator: `,`, 
+		Width: (7 * 4) - 1
+	},
+	{
+		Name: "uint16", 
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", binary.LittleEndian.Uint16(b)) 
+		}, 
+		Enabled: false, 
+		ByteLength: 2, 
+		Separator: `,`, 
+		Width: (12 * 2) - 1
+	},
+	{
+		Name:        "int32",
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", int32(binary.LittleEndian.Uint32(b))) 
+		},
+		Enabled:     false,
+		ByteLength:  4,
+		Separator:   `,`,
+		Width:       (11 * 2) - 1,
+	},
+	{
+		Name:        "uint32",
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", binary.LittleEndian.Uint32(b))
+		},
+		Enabled:     false,
+		ByteLength:  4,
+		Separator:   `,`,
+		Width:       (11 * 2) - 1,
+	},
+	{
+		Name:        "float32",
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%12.6f\n", math.Float32frombits(binary.BigEndian.Uint32(b))) 
+		},
+		Enabled:     false,
+		ByteLength:  4,
+		Separator:   `,`,
+		Width:       (13 * 2) - 1,
+	},
+	{
+		Name:        "int64",
+		EncoderFunc: func(b []byte) string {
+			return fmt.Sprintf("%d", int64(binary.BigEndian.Uint64(b))) 
+		},
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   `,`,
+		Width:       20,
+	},
+	{
+		Name:        "uint64",
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%d", binary.BigEndian.Uint64(b)) 
+		},
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   `,`,
+		Width:       20,
+	},
+	{
+		Name:        "float64",
+		EncoderFunc: func(b []byte) string { 
+			return fmt.Sprintf("%12.6f\n", math.Float64frombits(binary.BigEndian.Uint64(b)))
+		},
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   `,`,
+		Width:       12,
+	},
+	{
+		Name:        "hex",
+		EncoderFunc: func(b []byte) string { return fmt.Sprintf("%x", b) },
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   `,`,
+		Width:       16,
+	},
+	{
+		Name:        "ascii",
+		EncoderFunc: printASCII,
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   `,`,
+		Width:       8,
+	},
+}
+var (
 	enabledEncodings = []encoding{}
 	bufferSize       int
 	numLines         int
@@ -77,7 +176,6 @@ func init() {
 	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line")
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
 	flag.Parse()
-	anyFlagsSet := false
 
 	for _, e := range encodings {
 		if e.Enabled {
@@ -85,7 +183,7 @@ func init() {
 			enabledEncodings = append(enabledEncodings, e)
 		}
 	}
-	if !anyFlagsSet {
+	if len(enabledEncodings) == 0 {
 		for i, e := range encodings {
 			if e.Name == "hex" || e.Name == "ascii" || e.Name == "int8" {
 				encodings[i].Enabled = true
@@ -109,6 +207,15 @@ func printHeader(enc []encoding) {
 	}
 	fmt.Fprintln(os.Stdout, sep)
 }
+func processLine(chunk []byte, idx int) {
+
+	var ln []string
+	for _, e := range enabledEncodings {
+		ln = append(ln, e.Encode(chunk))
+	}
+	fmt.Fprintln(os.Stdout, strings.Join(ln, " "))
+
+}
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 	idx := 0
@@ -131,14 +238,4 @@ func main() {
 		processLine(chunk[:n], idx)
 		idx++
 	}
-}
-
-func processLine(chunk []byte, idx int) {
-
-	var ln []string
-	for _, e := range enabledEncodings {
-		ln = append(ln, e.Encode(chunk))
-	}
-	fmt.Fprintln(os.Stdout, strings.Join(ln, " "))
-
 }
