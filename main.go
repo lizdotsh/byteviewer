@@ -29,7 +29,7 @@ func (e encoding) Encode(chunk []byte) string {
 		output = append(output, e.EncoderFunc(chunk[i:i+e.ByteLength]))
 	}
 	// join with separator
-	return fmt.Sprintf("%-*s", e.Width, strings.Join(output, e.Separator))
+	return fmt.Sprintf("%-*s", e.EncodingWidth(bufferSize), strings.Join(output, e.Separator))
 }
 
 func printASCII(chunk []byte) string {
@@ -43,6 +43,9 @@ func printASCII(chunk []byte) string {
 	}
 	return output
 
+}
+func (e encoding) EncodingWidth(bytewidth int) int {
+	return (e.Width * (bytewidth / 8))
 }
 
 var (
@@ -176,7 +179,8 @@ func init() {
 	for i, e := range encodings {
 		flag.BoolVar(&encodings[i].Enabled, e.Name, false, fmt.Sprintf("Show %s", e.Name))
 	}
-	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line")
+	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line (must be multiple of 8)")
+
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
 	flag.Parse()
 
@@ -198,7 +202,7 @@ func init() {
 func printHeader(enc []encoding) {
 	sepWidth := 0
 	for _, e := range enc {
-		stri := fmt.Sprintf("%-*s ", e.Width, e.Name)
+		stri := fmt.Sprintf("%-*s ", e.EncodingWidth(bufferSize), e.Name)
 		sepWidth += len(stri)
 		fmt.Fprint(os.Stdout, stri)
 	}
@@ -219,6 +223,10 @@ func processLine(chunk []byte, idx int) {
 
 }
 func main() {
+	if bufferSize%8 != 0 {
+		fmt.Println("width must be divisible by 8")
+		return
+	}
 	reader := bufio.NewReader(os.Stdin)
 	idx := 0
 	printHeader(enabledEncodings)
@@ -232,7 +240,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error reading standard input:", err)
 			return
 		}
-		if idx > numLines && numLines != 0 {
+		if idx >= numLines && numLines != 0 {
 			break
 		}
 
