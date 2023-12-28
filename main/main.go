@@ -73,12 +73,14 @@ func main() {
 
 	idx := 0
 	printHeader(enabledEncodings)
+
+ReadLoop:
 	for {
 		chunk := make([]byte, bufferSize)
 		n, err := io.ReadFull(reader, chunk)
 		if err != nil {
-			if err == io.EOF {
-				break
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break ReadLoop
 			}
 			fmt.Fprintln(os.Stderr, "error reading standard input:", err)
 			return
