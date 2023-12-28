@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 type encoding struct {
@@ -44,6 +45,27 @@ func printASCII(chunk []byte) string {
 	return output
 
 }
+
+var utf8Window []byte
+
+func printUTF8(chunk []byte) string {
+	var output string
+	for _, b := range chunk {
+		if (utf8.RuneStart(b) && len(utf8Window) > 0) || len(utf8Window) >= utf8.UTFMax {
+			// Either a new rune has been started without the last one being finished or we've gotten
+			// more bytes than fit in a UTF-8 rune. Give up on the current window.
+			output += "�"               // Non-printable characters are represented as U+FFFD (REPLACEMENT CHARACTER)
+			utf8Window = utf8Window[:0] // Clear the window
+		}
+		utf8Window = append(utf8Window, b)
+		if len(utf8Window) > 0 && utf8.Valid(utf8Window) {
+			output += string(utf8Window)
+			utf8Window = utf8Window[:0]
+		}
+	}
+	return output
+}
+
 func (e encoding) EncodingWidth(bytewidth int) int {
 	return (e.Width * (bytewidth / 8))
 }
@@ -160,6 +182,14 @@ var encodings = []encoding{
 	{
 		Name:        "ascii",
 		EncoderFunc: printASCII,
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   ``,
+		Width:       8,
+	},
+	{
+		Name:        "utf8",
+		EncoderFunc: printUTF8,
 		Enabled:     false,
 		ByteLength:  8,
 		Separator:   ``,
