@@ -51,10 +51,16 @@ var utf8Window []byte
 func printUTF8(chunk []byte) string {
 	var output string
 	for _, b := range chunk {
+		if (utf8.RuneStart(b) && len(utf8Window) > 0) || len(utf8Window) >= utf8.UTFMax {
+			// Either a new rune has been started without the last one being finished or we've gotten
+			// more bytes than fit in a UTF-8 rune. Give up on the current window.
+			output += "�"               // Non-printable characters are represented as U+FFFD (REPLACEMENT CHARACTER)
+			utf8Window = utf8Window[:0] // Clear the window
+		}
 		utf8Window = append(utf8Window, b)
-		if utf8.Valid(utf8Window) {
+		if len(utf8Window) > 0 && utf8.Valid(utf8Window) {
 			output += string(utf8Window)
-			utf8Window = []byte{}
+			utf8Window = utf8Window[:0]
 		}
 	}
 	return output
