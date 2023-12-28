@@ -319,15 +319,19 @@ func processLine(chunk []byte, idx int) {
 }
 func main() {
 	if bufferSize%8 != 0 {
-		fmt.Println("width must be divisible by 8")
+		fmt.Fprintln(os.Stderr, "width must be divisible by 8")
+		// cli error format
+
 		return
 	}
 	reader := bufio.NewReader(os.Stdin)
+	// read full buffer
+
 	idx := 0
 	printHeader(enabledEncodings)
 	for {
 		chunk := make([]byte, bufferSize)
-		n, err := reader.Read(chunk)
+		n, err := io.ReadFull(reader, chunk)
 		if err != nil {
 			if err == io.EOF {
 				break
