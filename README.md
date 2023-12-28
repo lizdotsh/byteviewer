@@ -29,6 +29,14 @@ uint8                           int32                 hex
 
 (sample output)
 
+You can also just do:
+
+```bash
+byteviewer -int32 -hex -uint8 < myfile
+```
+
+slightly faster than using cat, but doesn't really matter
+
 Supported formats (WIP):
 
 1. int8
