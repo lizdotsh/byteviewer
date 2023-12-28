@@ -1,6 +1,6 @@
 # Byteviewer
 
-Very simple CLI tool that reads a file from the standard input and prints it in a series of different encodings. Right now only supports very basic encodings, and reads n bytes at a time (set with -width)
+Very simple CLI tool that reads a file from the standard input and prints it in a series of different encodings. Right now only supports very basic encodings, and reads n bytes at a time (set with -width, must be a multiple of 8)
 
 ## Installation
 
@@ -51,3 +51,4 @@ Supported formats (WIP):
 10. float64
 11. hex
 12. ascii
+13. utf8
