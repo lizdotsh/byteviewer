@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 type encoding struct {
@@ -44,6 +45,21 @@ func printASCII(chunk []byte) string {
 	return output
 
 }
+
+var utf8Window []byte
+
+func printUTF8(chunk []byte) string {
+	var output string
+	for _, b := range chunk {
+		utf8Window = append(utf8Window, b)
+		if utf8.Valid(utf8Window) {
+			output += string(utf8Window)
+			utf8Window = []byte{}
+		}
+	}
+	return output
+}
+
 func (e encoding) EncodingWidth(bytewidth int) int {
 	return (e.Width * (bytewidth / 8))
 }
@@ -160,6 +176,14 @@ var encodings = []encoding{
 	{
 		Name:        "ascii",
 		EncoderFunc: printASCII,
+		Enabled:     false,
+		ByteLength:  8,
+		Separator:   ``,
+		Width:       8,
+	},
+	{
+		Name:        "utf8",
+		EncoderFunc: printUTF8,
 		Enabled:     false,
 		ByteLength:  8,
 		Separator:   ``,
