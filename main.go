@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -19,10 +20,11 @@ type encoding struct {
 	ByteLength  int
 	// single character separator
 	Separator string
-	Width     int
+	Desc      string
+	MaxWidth  int
 }
 
-func (e encoding) Encode(chunk []byte) string {
+func (e *encoding) Encode(chunk []byte) string {
 
 	output := make([]string, 0)
 	// loop by bytelength at a time
@@ -30,14 +32,60 @@ func (e encoding) Encode(chunk []byte) string {
 		output = append(output, e.EncoderFunc(chunk[i:i+e.ByteLength]))
 	}
 	// join with separator
-	return fmt.Sprintf("%-*s", e.EncodingWidth(bufferSize), strings.Join(output, e.Separator))
+	// return string with padding
+	wdth := e.EncodingWidth(bufferSize)
+	if len(output) < wdth {
+		wdth += 2
+	}
+	return fmt.Sprintf("%-*s", wdth, strings.Join(output, e.Separator))
 }
 
-func printASCII(chunk []byte) string {
+// map unicode control chars to ascii equivalents
+func unicodeControlToASCII(unicodeRune rune) rune {
+	if !unicode.IsControl(unicodeRune) {
+		return unicodeRune
+	}
+	switch unicodeRune {
+	case 0x0000:
+		return '␀' // null
+	case 0x0007:
+		return '␇' // bell
+	case 0x0008:
+		return '⌫' // backspace
+	case 0x0009:
+		return '⇥' // tab
+	case 0x000A, 0x000B, 0x000C, 0x000D, 0x0085, 0x2028, 0x2029:
+		return '⏎' // newline and related
+	case 0x001B:
+		return '⎋' // escape
+	default:
+		// return generic sp char
+		return '␀'
+	}
+}
+
+var mapInvalidChar = map[uint8]rune{
+	'\n':   '⏎',
+	'\t':   '⇥',
+	'\r':   '↵',
+	'\v':   '↴',
+	'\f':   '↵',
+	'\b':   '⌫',
+	'\a':   '␇',
+	'\x1b': '⎋',
+	'\x00': '␀',
+}
+
+func parseASCII(chunk []byte) string {
 	var output string
 	for _, b := range chunk {
 		if b >= 32 && b <= 126 { // Printable ASCII range
-			output += fmt.Sprintf("%c", b)
+			rn, ok := mapInvalidChar[b]
+			if ok {
+				output += fmt.Sprintf("%c", rn)
+			} else {
+				output += fmt.Sprintf("%c", b)
+			}
 		} else {
 			output += "." // Non-printable characters are represented as a dot
 		}
@@ -48,7 +96,7 @@ func printASCII(chunk []byte) string {
 
 var utf8Window []byte
 
-func printUTF8(chunk []byte) string {
+func parseUTF8(chunk []byte) string {
 	var output string
 	for _, b := range chunk {
 		if (utf8.RuneStart(b) && len(utf8Window) > 0) || len(utf8Window) >= utf8.UTFMax {
@@ -59,15 +107,21 @@ func printUTF8(chunk []byte) string {
 		}
 		utf8Window = append(utf8Window, b)
 		if len(utf8Window) > 0 && utf8.Valid(utf8Window) {
-			output += string(utf8Window)
+			r, _ := utf8.DecodeRune(utf8Window)
+
+			// replace control chars with unicode equivalents
+			output += fmt.Sprintf("%c", unicodeControlToASCII(r))
 			utf8Window = utf8Window[:0]
 		}
 	}
+	// replace \n with \u23CE (RETURN SYMBOL)
 	return output
 }
 
-func (e encoding) EncodingWidth(bytewidth int) int {
-	return (e.Width * (bytewidth / 8))
+func (e *encoding) EncodingWidth(bytewidth int) int {
+	numEntries := (8 / e.ByteLength)
+
+	return (bytewidth / 8) * ((e.MaxWidth * numEntries) + (numEntries - 1)) // separators
 }
 
 var encodings = []encoding{
@@ -79,7 +133,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 1,
 		Separator:  `,`,
-		Width:      40,
+		MaxWidth:   4,
+		Desc:       `Signed 8-bit integer`,
 	},
 	{
 		Name: "uint8",
@@ -89,7 +144,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 1,
 		Separator:  `,`,
-		Width:      (4 * 8) - 1,
+		MaxWidth:   3,
+		Desc:       `Unsigned 8-bit integer`,
 	},
 	{
 		Name: "int16",
@@ -99,7 +155,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 2,
 		Separator:  `,`,
-		Width:      (7 * 4) - 1,
+		MaxWidth:   6,
+		Desc:       `Signed 16-bit integer`,
 	},
 	{
 		Name: "uint16",
@@ -109,7 +166,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 2,
 		Separator:  `,`,
-		Width:      (12 * 2) - 1,
+		MaxWidth:   11,
+		Desc:       `Unsigned 16-bit integer`,
 	},
 	{
 		Name: "int32",
@@ -119,7 +177,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 4,
 		Separator:  `,`,
-		Width:      (11 * 2) - 1,
+		MaxWidth:   10,
+		Desc:       `Signed 32-bit integer`,
 	},
 	{
 		Name: "uint32",
@@ -129,7 +188,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 4,
 		Separator:  `,`,
-		Width:      (11 * 2) - 1,
+		MaxWidth:   11,
+		Desc:       `Unsigned 32-bit integer`,
 	},
 	{
 		Name: "float32",
@@ -139,7 +199,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 4,
 		Separator:  `,`,
-		Width:      (13 * 2) - 1,
+		MaxWidth:   12,
+		Desc:       `IEEE 754 single-precision binary floating-point format: sign bit, 8 bits exponent, 23 bits mantissa`,
 	},
 	{
 		Name: "int64",
@@ -149,7 +210,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 8,
 		Separator:  `,`,
-		Width:      20,
+		MaxWidth:   20,
+		Desc:       `Signed 64-bit integer`,
 	},
 	{
 		Name: "uint64",
@@ -159,7 +221,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 8,
 		Separator:  `,`,
-		Width:      20,
+		MaxWidth:   20,
+		Desc:       `Unsigned 64-bit integer`,
 	},
 	{
 		Name: "float64",
@@ -169,7 +232,8 @@ var encodings = []encoding{
 		Enabled:    false,
 		ByteLength: 8,
 		Separator:  `,`,
-		Width:      12,
+		MaxWidth:   12,
+		Desc:       `IEEE 754 double-precision binary floating-point format: sign bit, 11 bits exponent, 52 bits mantissa`,
 	},
 	{
 		Name:        "hex",
@@ -177,23 +241,26 @@ var encodings = []encoding{
 		Enabled:     false,
 		ByteLength:  8,
 		Separator:   `,`,
-		Width:       16,
+		MaxWidth:    16,
+		Desc:        `Hexadecimal encoding`,
 	},
 	{
 		Name:        "ascii",
-		EncoderFunc: printASCII,
+		EncoderFunc: parseASCII,
 		Enabled:     false,
 		ByteLength:  8,
 		Separator:   ``,
-		Width:       8,
+		MaxWidth:    8,
+		Desc:        `ASCII encoded text. Non-printable characters are represented as a dot and the following characters are replaced with their unicode equivalents: \\n, \\t, \\r, \\v, \\f, \\b, \\a, \\x1b`,
 	},
 	{
 		Name:        "utf8",
-		EncoderFunc: printUTF8,
+		EncoderFunc: parseUTF8,
 		Enabled:     false,
 		ByteLength:  8,
 		Separator:   ``,
-		Width:       8,
+		MaxWidth:    8,
+		Desc:        `UTF-8 encoded text. Replaces the following characters with their unicode equivalents: \\n, \\t, \\r, \\v, \\f, \\b, \\a, \\x1b. Uses a global variable to rollover between chunks.`,
 	},
 }
 
@@ -205,7 +272,7 @@ var (
 
 func init() {
 	for i, e := range encodings {
-		flag.BoolVar(&encodings[i].Enabled, e.Name, false, fmt.Sprintf("Show %s", e.Name))
+		flag.BoolVar(&encodings[i].Enabled, e.Name, false, e.Desc)
 	}
 	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line (must be multiple of 8)")
 
@@ -243,11 +310,11 @@ func printHeader(enc []encoding) {
 }
 func processLine(chunk []byte, idx int) {
 
-	var ln []string
-	for _, e := range enabledEncodings {
-		ln = append(ln, e.Encode(chunk))
+	var ln string
+	for i := 0; i < len(enabledEncodings); i++ {
+		ln += enabledEncodings[i].Encode(chunk) + " "
 	}
-	fmt.Fprintln(os.Stdout, strings.Join(ln, " "))
+	fmt.Fprintln(os.Stdout, ln)
 
 }
 func main() {
