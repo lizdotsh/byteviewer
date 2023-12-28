@@ -163,7 +163,7 @@ var (
 			EncoderFunc: printASCII,
 			Enabled:     false,
 			ByteLength:  8,
-			Separator:   `,`,
+			Separator:   ``,
 			Width:       8,
 		},
 	}
