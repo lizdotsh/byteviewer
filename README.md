@@ -7,7 +7,7 @@ Very simple CLI tool that reads a file from the standard input and prints it in 
 Simply build the program and install it on your local system
 
 ```
-go build
+go build -o byteviewer ./main
 sudo mv byteviewer /usr/local/bin
 ```
 
