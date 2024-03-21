@@ -11,6 +11,7 @@ import (
 var (
 	enabledEncodings = []encoding{}
 	bufferSize       int
+	inputFile        string
 	numLines         int
 )
 
@@ -18,6 +19,7 @@ func init() {
 	for i, e := range encodings {
 		flag.BoolVar(&encodings[i].Enabled, e.Name, false, e.Desc)
 	}
+	flag.StringVar(&inputFile, "file", "", "The file to read input from (stdin by default)")
 	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line (must be multiple of 8)")
 
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
@@ -68,7 +70,19 @@ func main() {
 
 		return
 	}
-	reader := bufio.NewReader(os.Stdin)
+
+	// Create a buffered reader
+	reader := bufio.NewReader(os.Stdin);
+	if inputFile != "" {
+		file, err := os.Open(inputFile)
+		if err != nil {
+			fmt.Println("Error opening ", inputFile, ":", err)
+			os.Exit(1)
+		}
+		reader = bufio.NewReader(file)
+		defer file.Close()
+	}
+
 	// read full buffer
 
 	idx := 0
@@ -78,19 +92,22 @@ ReadLoop:
 	for {
 		chunk := make([]byte, bufferSize)
 		n, err := io.ReadFull(reader, chunk)
+
+		// Only process the bytes that were actually read
+		processLine(chunk[:n], idx)
+
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				processLine(chunk[:n], idx)
 				break ReadLoop
 			}
-			fmt.Fprintln(os.Stderr, "error reading standard input:", err)
+			fmt.Fprintln(os.Stderr, "error reading input:", err)
 			return
 		}
 		if idx >= numLines && numLines != 0 {
 			break
 		}
 
-		// Only process the bytes that were actually read
-		processLine(chunk[:n], idx)
 		idx++
 	}
 }

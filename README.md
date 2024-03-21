@@ -29,13 +29,13 @@ uint8                           int32                 hex
 
 (sample output)
 
-You can also just do:
+Or you can do:
 
 ```bash
-byteviewer -int32 -hex -uint8 < myfile
+byteviewer -int32 -hex -uint8 -file myfile
 ```
 
-slightly faster than using cat, but doesn't really matter
+to read directly from a file.
 
 Supported formats (WIP):
 
