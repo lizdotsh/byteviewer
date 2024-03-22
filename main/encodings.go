@@ -37,11 +37,15 @@ func (e *encoding) Encode(chunk []byte) string {
 	e.buffer = append(e.buffer, chunk...)
 	increment := max(e.ByteLength, 1)
 	start := 0
-	encodedVisibleLen := 0
+	outputVisibleLen := 0
 	// loop by bytelength at a time
 	for end := increment; end <= len(e.buffer); end += increment {
 		encoded, consumed := e.EncoderFunc(e.buffer[start:end])
-		encodedVisibleLen += utf8.RuneCountInString(encoded)
+		encodedLen := utf8.RuneCountInString(encoded)
+		outputVisibleLen += max(encodedLen, e.MaxWidth)
+		if encodedLen < e.MaxWidth {
+			encoded = fmt.Sprintf("%*s%s", e.MaxWidth - encodedLen, "", encoded)
+		}
 		if (enableColors) {
 			encoded = "\x1b[1;" + termColors[(e.total + start) % len(termColors)] + "m" + encoded
 		}
@@ -50,11 +54,11 @@ func (e *encoding) Encode(chunk []byte) string {
 	}
 	e.buffer = e.buffer[start:]
 	e.total += start
+	wdth := e.EncodingWidth(bufferSize)
+	outputVisibleLen += (len(output) - 1) * len(e.Separator) // Account for separators
+	padding := wdth - outputVisibleLen
 	// join with separator
 	// return string with padding
-	wdth := e.EncodingWidth(bufferSize)
-	encodedVisibleLen += (len(output) - 1) * len(e.Separator)
-	padding := wdth - encodedVisibleLen
 	return fmt.Sprintf("%s%*s", strings.Join(output, e.Separator), padding, "")
 }
 
