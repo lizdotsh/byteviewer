@@ -276,6 +276,6 @@ var encodings = []encoding{
 		ByteLength:  0,
 		Separator:   ``,
 		MaxWidth:    1,
-		Desc:        `UTF-8 encoded text. Replaces control characters with unicode symbol equivalents (mostly). Uses a global variable to rollover between chunks.`,
+		Desc:        `UTF-8 encoded text. Replaces control characters with unicode symbol equivalents (mostly).`,
 	},
 }
