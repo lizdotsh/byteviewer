@@ -19,6 +19,16 @@ type encoding struct {
 	Desc      string
 	MaxWidth  int
 	buffer    []byte
+	total     int
+}
+
+var termColors = []string{
+	"31",
+	"33",
+	"32",
+	"36",
+	"34",
+	"35",
 }
 
 func (e *encoding) Encode(chunk []byte) string {
@@ -27,20 +37,25 @@ func (e *encoding) Encode(chunk []byte) string {
 	e.buffer = append(e.buffer, chunk...)
 	increment := max(e.ByteLength, 1)
 	start := 0
+	encodedVisibleLen := 0
 	// loop by bytelength at a time
 	for end := increment; end <= len(e.buffer); end += increment {
 		encoded, consumed := e.EncoderFunc(e.buffer[start:end])
+		encodedVisibleLen += utf8.RuneCountInString(encoded)
+		if (enableColors) {
+			encoded = "\x1b[1;" + termColors[(e.total + start) % len(termColors)] + "m" + encoded
+		}
 		start += consumed
 		output = append(output, encoded)
 	}
 	e.buffer = e.buffer[start:]
+	e.total += start
 	// join with separator
 	// return string with padding
 	wdth := e.EncodingWidth(bufferSize)
-	if len(output) > wdth {
-		wdth += 2
-	}
-	return fmt.Sprintf("%-*s", wdth, strings.Join(output, e.Separator))
+	encodedVisibleLen += (len(output) - 1) * len(e.Separator)
+	padding := wdth - encodedVisibleLen
+	return fmt.Sprintf("%s%*s", strings.Join(output, e.Separator), padding, "")
 }
 
 // map unicode control chars to ascii equivalents
@@ -101,7 +116,7 @@ func parseUTF8(chunk []byte) (string, int) {
 	if utf8.Valid(chunk) {
 		r, _ := utf8.DecodeRune(chunk)
 		// replace control chars with unicode equivalents
-		return fmt.Sprintf("%c", r), len(chunk)
+		return fmt.Sprintf("%c", unicodeControlToASCII(r)), len(chunk)
 	} else {
 		for i := 1; i < len(chunk); i++ {
 			if utf8.RuneStart(chunk[i]) || i > utf8.UTFMax {

@@ -13,6 +13,7 @@ var (
 	bufferSize       int
 	inputFile        string
 	numLines         int
+	enableColors     bool
 )
 
 func init() {
@@ -20,8 +21,8 @@ func init() {
 		flag.BoolVar(&encodings[i].Enabled, e.Name, false, e.Desc)
 	}
 	flag.StringVar(&inputFile, "file", "", "The file to read input from (stdin by default)")
+	flag.BoolVar(&enableColors, "color", false, "Decorate output with rainbow colors")
 	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line")
-
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
 	flag.Parse()
 
@@ -59,6 +60,9 @@ func processLine(chunk []byte, idx int) {
 	var ln string
 	for i := 0; i < len(enabledEncodings); i++ {
 		ln += enabledEncodings[i].Encode(chunk) + "   "
+	}
+	if (enableColors) {
+		ln += "\x1b[0m"
 	}
 	fmt.Fprintln(os.Stdout, ln)
 
