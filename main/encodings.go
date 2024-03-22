@@ -11,26 +11,33 @@ import (
 
 type encoding struct {
 	Name        string
-	EncoderFunc func([]byte) string
+	EncoderFunc func([]byte) (string, int)
 	Enabled     bool
 	ByteLength  int
 	// single character separator
 	Separator string
 	Desc      string
 	MaxWidth  int
+	buffer    []byte
 }
 
 func (e *encoding) Encode(chunk []byte) string {
 
 	output := make([]string, 0)
+	e.buffer = append(e.buffer, chunk...)
+	increment := max(e.ByteLength, 1)
+	start := 0
 	// loop by bytelength at a time
-	for i := 0; i < len(chunk); i += e.ByteLength {
-		output = append(output, e.EncoderFunc(chunk[i:i+e.ByteLength]))
+	for end := increment; end <= len(e.buffer); end += increment {
+		encoded, consumed := e.EncoderFunc(e.buffer[start:end])
+		start += consumed
+		output = append(output, encoded)
 	}
+	e.buffer = e.buffer[start:]
 	// join with separator
 	// return string with padding
 	wdth := e.EncodingWidth(bufferSize)
-	if len(output) < wdth {
+	if len(output) > wdth {
 		wdth += 2
 	}
 	return fmt.Sprintf("%-*s", wdth, strings.Join(output, e.Separator))
@@ -72,7 +79,7 @@ var mapInvalidChar = map[uint8]rune{
 	'\x00': '␀',
 }
 
-func parseASCII(chunk []byte) string {
+func parseASCII(chunk []byte) (string, int) {
 	var output string
 	for _, b := range chunk {
 		if b >= 32 && b <= 126 { // Printable ASCII range
@@ -86,45 +93,38 @@ func parseASCII(chunk []byte) string {
 			output += "." // Non-printable characters are represented as a dot
 		}
 	}
-	return output
+	return output, len(chunk)
 
 }
 
-var utf8Window []byte
-
-func parseUTF8(chunk []byte) string {
-	var output string
-	for _, b := range chunk {
-		if (utf8.RuneStart(b) && len(utf8Window) > 0) || len(utf8Window) >= utf8.UTFMax {
-			// Either a new rune has been started without the last one being finished or we've gotten
-			// more bytes than fit in a UTF-8 rune. Give up on the current window.
-			output += "�"               // Non-printable characters are represented as U+FFFD (REPLACEMENT CHARACTER)
-			utf8Window = utf8Window[:0] // Clear the window
-		}
-		utf8Window = append(utf8Window, b)
-		if len(utf8Window) > 0 && utf8.Valid(utf8Window) {
-			r, _ := utf8.DecodeRune(utf8Window)
-
-			// replace control chars with unicode equivalents
-			output += fmt.Sprintf("%c", unicodeControlToASCII(r))
-			utf8Window = utf8Window[:0]
+func parseUTF8(chunk []byte) (string, int) {
+	if utf8.Valid(chunk) {
+		r, _ := utf8.DecodeRune(chunk)
+		// replace control chars with unicode equivalents
+		return fmt.Sprintf("%c", r), len(chunk)
+	} else {
+		for i := 1; i < len(chunk); i++ {
+			if utf8.RuneStart(chunk[i]) || i > utf8.UTFMax {
+				// Either a new rune has been started without the last one being finished or we've gotten
+				// more bytes than fit in a UTF-8 rune.
+				// Non-printable characters are represented as U+FFFD (REPLACEMENT CHARACTER)
+				return "�", i
+			}
 		}
 	}
-	// replace \n with \u23CE (RETURN SYMBOL)
-	return output
+	return "", 0
 }
 
 func (e *encoding) EncodingWidth(bytewidth int) int {
-	numEntries := (8 / e.ByteLength)
-
-	return (bytewidth / 8) * ((e.MaxWidth * numEntries) + (numEntries - 1)) // separators
+	numEntries := bytewidth / max(e.ByteLength, 1)
+	return ((e.MaxWidth * numEntries) + (numEntries - 1) * len(e.Separator)) // separators
 }
 
 var encodings = []encoding{
 	{
 		Name: "int8",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", int8(b[0]))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", int8(b[0])), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 1,
@@ -134,8 +134,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "uint8",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", uint8(b[0]))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", uint8(b[0])), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 1,
@@ -145,8 +145,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "int16",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", int16(binary.LittleEndian.Uint16(b)))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", int16(binary.LittleEndian.Uint16(b))), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 2,
@@ -156,8 +156,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "uint16",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", binary.LittleEndian.Uint16(b))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", binary.LittleEndian.Uint16(b)), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 2,
@@ -167,8 +167,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "int32",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", int32(binary.LittleEndian.Uint32(b)))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", int32(binary.LittleEndian.Uint32(b))), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 4,
@@ -178,8 +178,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "uint32",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", binary.LittleEndian.Uint32(b))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", binary.LittleEndian.Uint32(b)), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 4,
@@ -189,8 +189,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "float32",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%12.6f\n", math.Float32frombits(binary.BigEndian.Uint32(b)))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%12.6f\n", math.Float32frombits(binary.BigEndian.Uint32(b))), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 4,
@@ -200,8 +200,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "int64",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", int64(binary.BigEndian.Uint64(b)))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", int64(binary.BigEndian.Uint64(b))), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 8,
@@ -211,8 +211,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "uint64",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%d", binary.BigEndian.Uint64(b))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%d", binary.BigEndian.Uint64(b)), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 8,
@@ -222,8 +222,8 @@ var encodings = []encoding{
 	},
 	{
 		Name: "float64",
-		EncoderFunc: func(b []byte) string {
-			return fmt.Sprintf("%12.6f\n", math.Float64frombits(binary.BigEndian.Uint64(b)))
+		EncoderFunc: func(b []byte) (string, int) {
+			return fmt.Sprintf("%12.6f\n", math.Float64frombits(binary.BigEndian.Uint64(b))), len(b)
 		},
 		Enabled:    false,
 		ByteLength: 8,
@@ -233,29 +233,29 @@ var encodings = []encoding{
 	},
 	{
 		Name:        "hex",
-		EncoderFunc: func(b []byte) string { return fmt.Sprintf("%x", b) },
+		EncoderFunc: func(b []byte) (string, int) { return fmt.Sprintf("%x", b), len(b) },
 		Enabled:     false,
-		ByteLength:  8,
+		ByteLength:  1,
 		Separator:   `,`,
-		MaxWidth:    16,
+		MaxWidth:    2,
 		Desc:        `Hexadecimal encoding`,
 	},
 	{
 		Name:        "ascii",
 		EncoderFunc: parseASCII,
 		Enabled:     false,
-		ByteLength:  8,
+		ByteLength:  1,
 		Separator:   ``,
-		MaxWidth:    8,
+		MaxWidth:    1,
 		Desc:        `ASCII encoded text. Non-printable characters are represented as a dot and the following characters are replaced with their unicode equivalents: \\n, \\t, \\r, \\v, \\f, \\b, \\a, \\x1b`,
 	},
 	{
 		Name:        "utf8",
 		EncoderFunc: parseUTF8,
 		Enabled:     false,
-		ByteLength:  8,
+		ByteLength:  0,
 		Separator:   ``,
-		MaxWidth:    8,
+		MaxWidth:    1,
 		Desc:        `UTF-8 encoded text. Replaces control characters with unicode symbol equivalents (mostly). Uses a global variable to rollover between chunks.`,
 	},
 }

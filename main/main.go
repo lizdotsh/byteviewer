@@ -20,7 +20,7 @@ func init() {
 		flag.BoolVar(&encodings[i].Enabled, e.Name, false, e.Desc)
 	}
 	flag.StringVar(&inputFile, "file", "", "The file to read input from (stdin by default)")
-	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line (must be multiple of 8)")
+	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line")
 
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
 	flag.Parse()
@@ -43,7 +43,7 @@ func init() {
 func printHeader(enc []encoding) {
 	sepWidth := 0
 	for _, e := range enc {
-		stri := fmt.Sprintf("%-*s ", e.EncodingWidth(bufferSize), e.Name)
+		stri := fmt.Sprintf("%-*s ", e.EncodingWidth(bufferSize) + 2, e.Name)
 		sepWidth += len(stri)
 		fmt.Fprint(os.Stdout, stri)
 	}
@@ -58,18 +58,17 @@ func processLine(chunk []byte, idx int) {
 
 	var ln string
 	for i := 0; i < len(enabledEncodings); i++ {
-		ln += enabledEncodings[i].Encode(chunk) + " "
+		ln += enabledEncodings[i].Encode(chunk) + "   "
 	}
 	fmt.Fprintln(os.Stdout, ln)
 
 }
 func main() {
-	if bufferSize%8 != 0 {
-		fmt.Fprintln(os.Stderr, "width must be divisible by 8")
-		// cli error format
-
+	if bufferSize <= 0 {
+		fmt.Fprintln(os.Stderr, "width must be >0")
 		return
 	}
+
 
 	// Create a buffered reader
 	reader := bufio.NewReader(os.Stdin);
