@@ -47,7 +47,8 @@ func (e *encoding) Encode(chunk []byte) string {
 			encoded = fmt.Sprintf("%*s%s", e.MaxWidth - encodedLen, "", encoded)
 		}
 		if (enableColors) {
-			encoded = "\x1b[1;" + termColors[(e.total + start) % len(termColors)] + "m" + encoded
+			colorIndex := ((e.total + start) / colorWidth) % len(termColors)
+			encoded = "\x1b[1;" + termColors[colorIndex] + "m" + encoded
 		}
 		start += consumed
 		output = append(output, encoded)

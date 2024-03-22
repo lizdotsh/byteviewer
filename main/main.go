@@ -14,6 +14,7 @@ var (
 	inputFile        string
 	numLines         int
 	enableColors     bool
+	colorWidth     	 int
 )
 
 func init() {
@@ -22,6 +23,7 @@ func init() {
 	}
 	flag.StringVar(&inputFile, "file", "", "The file to read input from (stdin by default)")
 	flag.BoolVar(&enableColors, "color", false, "Decorate output with rainbow colors")
+	flag.IntVar(&colorWidth, "colorWidth", 1, "Width in bytes of each color")
 	flag.IntVar(&bufferSize, "width", 8, "How many bytes to print per line")
 	flag.IntVar(&numLines, "n", 0, "How many lines to print")
 	flag.Parse()
