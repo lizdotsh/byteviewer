@@ -124,22 +124,21 @@ func parseASCII(chunk []byte) (string, int) {
 
 }
 
-func parseUTF8(chunk []byte) (string, int) {
+func utf8GetRune(chunk []byte) (rune, int) {
 	if utf8.Valid(chunk) {
 		r, _ := utf8.DecodeRune(chunk)
-		// replace control chars with unicode equivalents
-		return fmt.Sprintf("%c", unicodeControlToASCII(r)), len(chunk)
+		return r, len(chunk)
 	} else {
 		for i := 1; i < len(chunk); i++ {
 			if utf8.RuneStart(chunk[i]) || i > utf8.UTFMax {
 				// Either a new rune has been started without the last one being finished or we've gotten
 				// more bytes than fit in a UTF-8 rune.
 				// Non-printable characters are represented as U+FFFD (REPLACEMENT CHARACTER)
-				return "�", i
+				return '�', i
 			}
 		}
 	}
-	return "", 0
+	return 0, 0
 }
 
 func (e *encoding) EncodingWidth(bytewidth int) int {
@@ -268,6 +267,38 @@ var encodings = []encoding{
 		Desc:        `Hexadecimal encoding`,
 	},
 	{
+		Name:        "utf8hex",
+		EncoderFunc: func(b []byte) (string, int) {
+			r, consumed := utf8GetRune(b)
+			if consumed > 0 {
+				return fmt.Sprintf("%x", r), consumed
+			} else {
+				return "", consumed
+			}
+		},
+		Enabled:     false,
+		ByteLength:  0,
+		Separator:   `,`,
+		MaxWidth:    3,
+		Desc:        `Unicode code points of UTF-8 encoded text. Hexadecimal.`,
+	},
+	{
+		Name:        "utf8int",
+		EncoderFunc: func(b []byte) (string, int) {
+			r, consumed := utf8GetRune(b)
+			if consumed > 0 {
+				return fmt.Sprintf("%d", r), consumed
+			} else {
+				return "", consumed
+			}
+		},
+		Enabled:     false,
+		ByteLength:  0,
+		Separator:   `,`,
+		MaxWidth:    3,
+		Desc:        `Unicode code points of UTF-8 encoded text. Decimal.`,
+	},
+	{
 		Name:        "ascii",
 		EncoderFunc: parseASCII,
 		Enabled:     false,
@@ -278,7 +309,15 @@ var encodings = []encoding{
 	},
 	{
 		Name:        "utf8",
-		EncoderFunc: parseUTF8,
+		EncoderFunc: func(b []byte) (string, int) {
+			r, consumed := utf8GetRune(b)
+			if consumed > 0 {
+				// replace control chars with unicode equivalents
+				return fmt.Sprintf("%c", unicodeControlToASCII(r)), consumed
+			} else {
+				return "", consumed
+			}
+		},
 		Enabled:     false,
 		ByteLength:  0,
 		Separator:   ``,
