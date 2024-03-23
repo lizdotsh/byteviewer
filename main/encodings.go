@@ -34,24 +34,31 @@ var termColors = []string{
 func (e *encoding) Encode(chunk []byte) string {
 
 	output := make([]string, 0)
-	e.buffer = append(e.buffer, chunk...)
 	increment := max(e.ByteLength, 1)
+	paddingSize := -(len(e.buffer) * (e.MaxWidth + len(e.Separator)) / increment)
 	start := 0
 	outputVisibleLen := 0
+	e.buffer = append(e.buffer, chunk...)
 	// loop by bytelength at a time
 	for end := increment; end <= len(e.buffer); end += increment {
 		encoded, consumed := e.EncoderFunc(e.buffer[start:end])
 		encodedLen := utf8.RuneCountInString(encoded)
-		outputVisibleLen += max(encodedLen, e.MaxWidth)
-		if encodedLen < e.MaxWidth {
-			encoded = fmt.Sprintf("%*s%s", e.MaxWidth - encodedLen, "", encoded)
-		}
-		if (enableColors) {
-			colorIndex := ((e.total + start) / colorWidth) % len(termColors)
-			encoded = "\x1b[1;" + termColors[colorIndex] + "m" + encoded
+		if encodedLen > 0 {
+			paddingSize += e.MaxWidth
+			if paddingSize > encodedLen {
+				encoded = fmt.Sprintf("%*s%s", paddingSize - encodedLen, "", encoded)
+			}
+			outputVisibleLen += utf8.RuneCountInString(encoded)
+			if (enableColors) {
+				colorIndex := ((e.total + end - 1) / colorWidth) % len(termColors)
+				encoded = "\x1b[1;" + termColors[colorIndex] + "m" + encoded
+			}
+			paddingSize = 0
+			output = append(output, encoded)
+		} else {
+			paddingSize += e.MaxWidth + len(e.Separator)
 		}
 		start += consumed
-		output = append(output, encoded)
 	}
 	e.buffer = e.buffer[start:]
 	e.total += start
