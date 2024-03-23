@@ -93,9 +93,6 @@ ReadLoop:
 		chunk := make([]byte, bufferSize)
 		n, err := io.ReadFull(reader, chunk)
 
-		// Only process the bytes that were actually read
-		processLine(chunk[:n], idx)
-
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				processLine(chunk[:n], idx)
@@ -104,6 +101,10 @@ ReadLoop:
 			fmt.Fprintln(os.Stderr, "error reading input:", err)
 			return
 		}
+
+		// Only process the bytes that were actually read
+		processLine(chunk[:n], idx)
+
 		if idx >= numLines && numLines != 0 {
 			break
 		}
